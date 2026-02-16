@@ -1,8 +1,4 @@
-import { neon, neonConfig } from '@neondatabase/serverless';
-
-// CRITICAL: Enable HTTP fetch mode for Vercel serverless functions
-// WebSocket connections don't work in Vercel's edge runtime
-neonConfig.fetchConnectionCache = true;
+import postgres from 'postgres';
 
 let sql;
 
@@ -11,7 +7,12 @@ export function getDb() {
         if (!process.env.DATABASE_URL) {
             throw new Error('DATABASE_URL environment variable is not set');
         }
-        sql = neon(process.env.DATABASE_URL);
+        sql = postgres(process.env.DATABASE_URL, {
+            ssl: 'require',
+            idle_timeout: 20, // close idle connections after 20 seconds
+            max_lifetime: 60 * 30, // 30 minutes max connection lifetime
+            connect_timeout: 10,
+        });
     }
     return sql;
 }
