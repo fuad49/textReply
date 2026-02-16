@@ -81,10 +81,10 @@ export async function getPageByPageId(pageId) {
     const sql = getDb();
     console.log('🔍 SQL client obtained, executing query...');
 
-    // Add 5-second timeout to detect hanging queries
+    // Add 15-second timeout to handle cold starts and cross-region latency
     const queryPromise = sql`SELECT * FROM pages WHERE "pageId" = ${pageId}`;
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Query timeout after 5 seconds')), 5000)
+      setTimeout(() => reject(new Error('Query timeout after 15 seconds - check if Neon DB is waking up')), 15000)
     );
 
     const result = await Promise.race([queryPromise, timeoutPromise]);
