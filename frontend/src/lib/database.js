@@ -1,4 +1,8 @@
-import { neon } from '@neondatabase/serverless';
+import { neon, neonConfig } from '@neondatabase/serverless';
+
+// CRITICAL: Enable HTTP fetch mode for Vercel serverless functions
+// WebSocket connections don't work in Vercel's edge runtime
+neonConfig.fetchConnectionCache = true;
 
 let sql;
 
