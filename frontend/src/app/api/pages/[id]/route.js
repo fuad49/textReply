@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth-server';
-import { Page, Conversation, Message, ensureDbSync } from '@/lib/models';
+import { ensureDbSync } from '@/lib/models';
 
 // PUT /api/pages/[id]/context — update system prompt and context
 export async function PUT(request, { params }) {
@@ -10,7 +10,7 @@ export async function PUT(request, { params }) {
     const { id } = await params;
 
     try {
-        await ensureDbSync();
+        const { Page } = await ensureDbSync();
         const { systemPrompt, context } = await request.json();
         const page = await Page.findOne({ where: { id, userId: user.id } });
         if (!page) return NextResponse.json({ error: 'Page not found' }, { status: 404 });
@@ -38,7 +38,7 @@ export async function DELETE(request, { params }) {
     const { id } = await params;
 
     try {
-        await ensureDbSync();
+        const { Page } = await ensureDbSync();
         const page = await Page.findOne({ where: { id, userId: user.id } });
         if (!page) return NextResponse.json({ error: 'Page not found' }, { status: 404 });
 

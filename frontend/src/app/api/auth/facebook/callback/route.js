@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import * as facebookService from '@/lib/facebook';
-import { User, ensureDbSync } from '@/lib/models';
+import { ensureDbSync } from '@/lib/models';
 
 export async function GET(request) {
     try {
@@ -24,8 +24,10 @@ export async function GET(request) {
         // Get user profile
         const profile = await facebookService.getUserProfile(accessToken);
 
+        // Lazy load models
+        const { User } = await ensureDbSync();
+
         // Create or update user in DB
-        await ensureDbSync();
         const [user] = await User.findOrCreate({
             where: { facebookId: profile.id },
             defaults: {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth-server';
-import { Page, Conversation, Message, ensureDbSync } from '@/lib/models';
+import { ensureDbSync } from '@/lib/models';
 
 // GET /api/pages/[id]/conversations — list conversations for a page
 export async function GET(request, { params }) {
@@ -10,7 +10,7 @@ export async function GET(request, { params }) {
     const { id } = await params;
 
     try {
-        await ensureDbSync();
+        const { Page, Conversation, Message } = await ensureDbSync();
         const page = await Page.findOne({ where: { id, userId: user.id } });
         if (!page) return NextResponse.json({ error: 'Page not found' }, { status: 404 });
 

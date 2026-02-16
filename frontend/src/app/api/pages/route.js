@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth-server';
-import { Page, Conversation, ensureDbSync } from '@/lib/models';
+import { ensureDbSync } from '@/lib/models';
 import * as facebookService from '@/lib/facebook';
 
 // GET /api/pages — list Facebook pages the user can manage
@@ -9,7 +9,7 @@ export async function GET(request) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
-        await ensureDbSync();
+        const { Page } = await ensureDbSync();
         const fbPages = await facebookService.getUserPages(user.accessToken);
         const connectedPages = await Page.findAll({
             where: { userId: user.id },
@@ -39,7 +39,7 @@ export async function POST(request) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
-        await ensureDbSync();
+        const { Page } = await ensureDbSync();
         const { pageId } = await request.json();
         if (!pageId) return NextResponse.json({ error: 'pageId is required' }, { status: 400 });
 

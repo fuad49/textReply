@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth-server';
-import { Page, Conversation, ensureDbSync } from '@/lib/models';
+import { ensureDbSync } from '@/lib/models';
 
 // GET /api/pages/connected — list connected pages
 export async function GET(request) {
@@ -8,7 +8,7 @@ export async function GET(request) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
-        await ensureDbSync();
+        const { Page, Conversation } = await ensureDbSync();
         const pages = await Page.findAll({
             where: { userId: user.id },
             include: [{ model: Conversation, as: 'conversations', attributes: ['id'] }],
