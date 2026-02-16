@@ -1,7 +1,4 @@
 import { NextResponse } from 'next/server';
-import { Page, Conversation, Message, ensureDbSync } from '@/lib/models';
-import * as facebookService from '@/lib/facebook';
-import { getReply } from '@/lib/gemini';
 
 // GET /api/webhook — Facebook verification
 export async function GET(request) {
@@ -15,27 +12,37 @@ export async function GET(request) {
         return new Response(challenge, { status: 200 });
     }
 
+    // If no verification params, just return OK (health check)
+    if (!mode) {
+        return NextResponse.json({ status: 'Webhook endpoint is running' });
+    }
+
     console.error('❌ Webhook verification failed.');
     return new Response('Forbidden', { status: 403 });
 }
 
 // POST /api/webhook — receive messages from Facebook
 export async function POST(request) {
+    // Import heavy dependencies only when needed (not at module load time)
+    const { Page, Conversation, Message, ensureDbSync } = await import('@/lib/models');
+    const facebookService = await import('@/lib/facebook');
+    const { getReply } = await import('@/lib/gemini');
+
     const body = await request.json();
 
-    // Respond immediately (Facebook requires 200 within 20 seconds)
-    // Process the messages asynchronously
-    if (body.object === 'page') {
-        // Don't await — process in background
-        processEntries(body.entry).catch((err) =>
-            console.error('Webhook processing error:', err)
-        );
+    if (body.object !== 'page') {
+        return NextResponse.json({ status: 'ignored' }, { status: 200 });
     }
+
+    // Process messages (don't await — respond to Facebook quickly)
+    processEntries(body.entry, { Page, Conversation, Message, ensureDbSync }, facebookService, getReply)
+        .catch((err) => console.error('Webhook processing error:', err));
 
     return NextResponse.json({ status: 'ok' }, { status: 200 });
 }
 
-async function processEntries(entries) {
+async function processEntries(entries, models, facebookService, getReply) {
+    const { Page, Conversation, Message, ensureDbSync } = models;
     await ensureDbSync();
 
     for (const entry of entries) {
@@ -49,12 +56,14 @@ async function processEntries(entries) {
             const messageText = event.message.text;
 
             console.log(`📨 Message from ${senderId} on page ${pageId}: "${messageText}"`);
-            await handleIncomingMessage(pageId, senderId, messageText);
+            await handleIncomingMessage(pageId, senderId, messageText, models, facebookService, getReply);
         }
     }
 }
 
-async function handleIncomingMessage(fbPageId, senderId, messageText) {
+async function handleIncomingMessage(fbPageId, senderId, messageText, models, facebookService, getReply) {
+    const { Page, Conversation, Message } = models;
+
     try {
         const page = await Page.findOne({ where: { pageId: fbPageId } });
         if (!page) {
