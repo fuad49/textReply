@@ -1,0 +1,12 @@
+{
+    "name": "textreply",
+    "version": "1.0.0",
+    "description": "TextReply - Facebook Messenger AI Chatbot",
+    "scripts": {
+        "install:all": "cd backend && npm install && cd ../frontend && npm install",
+        "dev:backend": "cd backend && npm run dev",
+        "dev:frontend": "cd frontend && npm run dev",
+        "dev": "npx -y concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+        "setup": "npm run install:all"
+    }
+}
