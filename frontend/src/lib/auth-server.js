@@ -1,6 +1,4 @@
-import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { ensureDbSync } from '@/lib/models';
 
 /**
  * Verify JWT token and return the user, or null if invalid.
@@ -15,6 +13,8 @@ export async function authenticateRequest(request) {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        // Dynamic import to avoid build-time bundling
+        const { ensureDbSync } = await import('./models');
         const { User } = await ensureDbSync();
         const user = await User.findByPk(decoded.userId);
         return user;

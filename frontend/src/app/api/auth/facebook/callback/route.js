@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import * as facebookService from '@/lib/facebook';
-import { ensureDbSync } from '@/lib/models';
 
 export async function GET(request) {
     try {
@@ -9,14 +7,17 @@ export async function GET(request) {
         const code = url.searchParams.get('code');
 
         if (!code) {
-            return NextResponse.redirect(
-                `${process.env.FRONTEND_URL || url.origin}/?error=no_code`
-            );
+            const frontendUrl = process.env.FRONTEND_URL || `https://${request.headers.get('host')}`;
+            return NextResponse.redirect(`${frontendUrl}/?error=no_code`);
         }
 
-        const protocol = url.protocol;
-        const host = request.headers.get('host') || url.host;
-        const redirectUri = `${protocol}//${host}/api/auth/facebook/callback`;
+        const protocol = 'https';
+        const host = request.headers.get('host');
+        const redirectUri = `${protocol}://${host}/api/auth/facebook/callback`;
+
+        // Dynamic imports - only load at runtime
+        const facebookService = await import('@/lib/facebook');
+        const { ensureDbSync } = await import('@/lib/models');
 
         // Exchange code for access token
         const accessToken = await facebookService.exchangeCodeForToken(code, redirectUri);
@@ -49,13 +50,13 @@ export async function GET(request) {
             expiresIn: '7d',
         });
 
-        // Redirect to frontend with token
-        const frontendUrl = process.env.FRONTEND_URL || url.origin;
+        // Redirect to frontend with token - use Vercel URL
+        const frontendUrl = process.env.FRONTEND_URL || `https://${host}`;
         return NextResponse.redirect(`${frontendUrl}/dashboard?token=${token}`);
     } catch (error) {
         console.error('OAuth callback error:', error.message);
-        const url = new URL(request.url);
-        const frontendUrl = process.env.FRONTEND_URL || url.origin;
+        const host = request.headers.get('host');
+        const frontendUrl = process.env.FRONTEND_URL || `https://${host}`;
         return NextResponse.redirect(`${frontendUrl}/?error=auth_failed`);
     }
 }
