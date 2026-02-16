@@ -15,9 +15,9 @@ export async function GET(request) {
         const host = request.headers.get('host');
         const redirectUri = `${protocol}://${host}/api/auth/facebook/callback`;
 
-        // Dynamic imports - only load at runtime
+        // Dynamic imports
         const facebookService = await import('@/lib/facebook');
-        const { ensureDbSync } = await import('@/lib/models');
+        const { findOrCreateUser, updateUser } = await import('@/lib/models');
 
         // Exchange code for access token
         const accessToken = await facebookService.exchangeCodeForToken(code, redirectUri);
@@ -25,32 +25,27 @@ export async function GET(request) {
         // Get user profile
         const profile = await facebookService.getUserProfile(accessToken);
 
-        // Lazy load models
-        const { User } = await ensureDbSync();
-
-        // Create or update user in DB
-        const [user] = await User.findOrCreate({
-            where: { facebookId: profile.id },
-            defaults: {
-                name: profile.name,
-                email: profile.email || null,
-                accessToken,
-                profilePicture: profile.picture?.data?.url || null,
-            },
+        // Create or find user
+        let user = await findOrCreateUser(profile.id, {
+            name: profile.name,
+            email: profile.email || null,
+            accessToken,
+            profilePicture: profile.picture?.data?.url || null,
         });
 
         // Update token and profile on each login
-        user.accessToken = accessToken;
-        user.name = profile.name;
-        user.profilePicture = profile.picture?.data?.url || user.profilePicture;
-        await user.save();
+        user = await updateUser(user.id, {
+            accessToken,
+            name: profile.name,
+            profilePicture: profile.picture?.data?.url,
+        });
 
         // Generate JWT
         const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
             expiresIn: '7d',
         });
 
-        // Redirect to frontend with token - use Vercel URL
+        // Redirect to frontend with token
         const frontendUrl = process.env.FRONTEND_URL || `https://${host}`;
         return NextResponse.redirect(`${frontendUrl}/dashboard?token=${token}`);
     } catch (error) {

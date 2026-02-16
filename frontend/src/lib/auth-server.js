@@ -13,10 +13,8 @@ export async function authenticateRequest(request) {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        // Dynamic import to avoid build-time bundling
-        const { ensureDbSync } = await import('./models');
-        const { User } = await ensureDbSync();
-        const user = await User.findByPk(decoded.userId);
+        const { getUserById } = await import('./models');
+        const user = await getUserById(decoded.userId);
         return user;
     } catch {
         return null;

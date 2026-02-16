@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth-server';
-import { ensureDbSync } from '@/lib/models';
+import { updatePageSettings, deletePage } from '@/lib/models';
 
-// PUT /api/pages/[id]/context — update system prompt and context
+// PUT /api/pages/[id] — update system prompt and context
 export async function PUT(request, { params }) {
     const user = await authenticateRequest(request);
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -10,18 +10,14 @@ export async function PUT(request, { params }) {
     const { id } = await params;
 
     try {
-        const { Page } = await ensureDbSync();
         const { systemPrompt, context } = await request.json();
-        const page = await Page.findOne({ where: { id, userId: user.id } });
-        if (!page) return NextResponse.json({ error: 'Page not found' }, { status: 404 });
+        const page = await updatePageSettings(id, user.id, { systemPrompt, context });
 
-        if (systemPrompt !== undefined) page.systemPrompt = systemPrompt;
-        if (context !== undefined) page.context = context;
-        await page.save();
+        if (!page) return NextResponse.json({ error: 'Page not found' }, { status: 404 });
 
         return NextResponse.json({
             message: 'Settings updated successfully',
-            systemPrompt: page.systemPrompt,
+            systemPrompt: page.system_prompt,
             context: page.context,
         });
     } catch (error) {
@@ -38,11 +34,7 @@ export async function DELETE(request, { params }) {
     const { id } = await params;
 
     try {
-        const { Page } = await ensureDbSync();
-        const page = await Page.findOne({ where: { id, userId: user.id } });
-        if (!page) return NextResponse.json({ error: 'Page not found' }, { status: 404 });
-
-        await page.destroy();
+        await deletePage(id, user.id);
         return NextResponse.json({ message: 'Page disconnected successfully' });
     } catch (error) {
         console.error('Delete page error:', error.message);

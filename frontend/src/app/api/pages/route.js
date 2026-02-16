@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth-server';
-import { ensureDbSync } from '@/lib/models';
 import * as facebookService from '@/lib/facebook';
+import { getDb } from '@/lib/database';
 
 // GET /api/pages — list Facebook pages the user can manage
 export async function GET(request) {
@@ -9,13 +9,10 @@ export async function GET(request) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
-        const { Page } = await ensureDbSync();
-        const fbPages = await facebookService.getUserPages(user.accessToken);
-        const connectedPages = await Page.findAll({
-            where: { userId: user.id },
-            attributes: ['pageId'],
-        });
-        const connectedPageIds = new Set(connectedPages.map((p) => p.pageId));
+        const sql = getDb();
+        const fbPages = await facebookService.getUserPages(user.access_token);
+        const connectedPages = await sql`SELECT page_id FROM pages WHERE user_id = ${user.id}`;
+        const connectedPageIds = new Set(connectedPages.map((p) => p.page_id));
 
         const pages = fbPages.map((p) => ({
             pageId: p.id,
@@ -39,20 +36,20 @@ export async function POST(request) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
-        const { Page } = await ensureDbSync();
+        const { getPageByPageId, createPage } = await import('@/lib/models');
         const { pageId } = await request.json();
         if (!pageId) return NextResponse.json({ error: 'pageId is required' }, { status: 400 });
 
-        const fbPages = await facebookService.getUserPages(user.accessToken);
+        const fbPages = await facebookService.getUserPages(user.access_token);
         const fbPage = fbPages.find((p) => p.id === pageId);
         if (!fbPage) return NextResponse.json({ error: 'Page not found' }, { status: 404 });
 
-        const existing = await Page.findOne({ where: { pageId } });
+        const existing = await getPageByPageId(pageId);
         if (existing) return NextResponse.json({ error: 'Page is already connected' }, { status: 409 });
 
         await facebookService.subscribePageWebhook(pageId, fbPage.access_token);
 
-        const page = await Page.create({
+        const page = await createPage({
             pageId: fbPage.id,
             name: fbPage.name,
             accessToken: fbPage.access_token,
@@ -61,7 +58,7 @@ export async function POST(request) {
 
         return NextResponse.json({
             message: 'Page connected successfully!',
-            page: { id: page.id, pageId: page.pageId, name: page.name, isActive: page.isActive },
+            page: { id: page.id, pageId: page.page_id, name: page.name, isActive: page.is_active },
         });
     } catch (error) {
         console.error('Connect page error:', error.message);

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth-server';
-import { ensureDbSync } from '@/lib/models';
+import { togglePage } from '@/lib/models';
 
 // PUT /api/pages/[id]/toggle — toggle auto-reply on/off
 export async function PUT(request, { params }) {
@@ -10,16 +10,12 @@ export async function PUT(request, { params }) {
     const { id } = await params;
 
     try {
-        const { Page } = await ensureDbSync();
-        const page = await Page.findOne({ where: { id, userId: user.id } });
+        const page = await togglePage(id, user.id);
         if (!page) return NextResponse.json({ error: 'Page not found' }, { status: 404 });
 
-        page.isActive = !page.isActive;
-        await page.save();
-
         return NextResponse.json({
-            message: `Auto-reply ${page.isActive ? 'enabled' : 'disabled'}`,
-            isActive: page.isActive,
+            message: `Auto-reply ${page.is_active ? 'enabled' : 'disabled'}`,
+            isActive: page.is_active,
         });
     } catch (error) {
         console.error('Toggle error:', error.message);

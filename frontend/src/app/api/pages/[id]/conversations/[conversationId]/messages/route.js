@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth-server';
-import { ensureDbSync } from '@/lib/models';
+import { getPageById, getMessages } from '@/lib/models';
 
 // GET /api/pages/[pageId]/conversations/[conversationId]/messages
 export async function GET(request, { params }) {
@@ -10,14 +10,10 @@ export async function GET(request, { params }) {
     const { id, conversationId } = await params;
 
     try {
-        const { Page, Message } = await ensureDbSync();
-        const page = await Page.findOne({ where: { id, userId: user.id } });
+        const page = await getPageById(id, user.id);
         if (!page) return NextResponse.json({ error: 'Page not found' }, { status: 404 });
 
-        const messages = await Message.findAll({
-            where: { conversationId },
-            order: [['createdAt', 'ASC']],
-        });
+        const messages = await getMessages(conversationId);
 
         return NextResponse.json({ messages });
     } catch (error) {

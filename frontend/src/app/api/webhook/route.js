@@ -12,7 +12,6 @@ export async function GET(request) {
         return new Response(challenge, { status: 200 });
     }
 
-    // If no verification params, just return OK (health check)
     if (!mode) {
         return NextResponse.json({ status: 'Webhook endpoint is running' });
     }
@@ -23,11 +22,6 @@ export async function GET(request) {
 
 // POST /api/webhook — receive messages from Facebook
 export async function POST(request) {
-    // Import heavy dependencies only when needed (not at module load time)
-    const { Page, Conversation, Message, ensureDbSync } = await import('@/lib/models');
-    const facebookService = await import('@/lib/facebook');
-    const { getReply } = await import('@/lib/gemini');
-
     const body = await request.json();
 
     if (body.object !== 'page') {
@@ -35,18 +29,20 @@ export async function POST(request) {
     }
 
     // Process messages (don't await — respond to Facebook quickly)
-    processEntries(body.entry, { Page, Conversation, Message, ensureDbSync }, facebookService, getReply)
-        .catch((err) => console.error('Webhook processing error:', err));
+    processEntries(body.entry).catch((err) =>
+        console.error('Webhook processing error:', err)
+    );
 
     return NextResponse.json({ status: 'ok' }, { status: 200 });
 }
 
-async function processEntries(entries, models, facebookService, getReply) {
-    const { Page, Conversation, Message, ensureDbSync } = models;
-    await ensureDbSync();
+async function processEntries(entries) {
+    const { getPageByPageId, findOrCreateConversation, createMessage, getRecentMessages, updateConversationTimestamp } = await import('@/lib/models');
+    const facebookService = await import('@/lib/facebook');
+    const { getReply } = await import('@/lib/gemini');
 
     for (const entry of entries) {
-        const pageId = entry.id;
+        const fbPageId = entry.id;
         if (!entry.messaging) continue;
 
         for (const event of entry.messaging) {
@@ -55,83 +51,56 @@ async function processEntries(entries, models, facebookService, getReply) {
             const senderId = event.sender.id;
             const messageText = event.message.text;
 
-            console.log(`📨 Message from ${senderId} on page ${pageId}: "${messageText}"`);
-            await handleIncomingMessage(pageId, senderId, messageText, models, facebookService, getReply);
+            console.log(`📨 Message from ${senderId} on page ${fbPageId}: "${messageText}"`);
+            await handleIncomingMessage(fbPageId, senderId, messageText, { getPageByPageId, findOrCreateConversation, createMessage, getRecentMessages, updateConversationTimestamp }, facebookService, getReply);
         }
     }
 }
 
 async function handleIncomingMessage(fbPageId, senderId, messageText, models, facebookService, getReply) {
-    const { Page, Conversation, Message } = models;
+    const { getPageByPageId, findOrCreateConversation, createMessage, getRecentMessages, updateConversationTimestamp } = models;
 
     try {
-        const page = await Page.findOne({ where: { pageId: fbPageId } });
+        const page = await getPageByPageId(fbPageId);
         if (!page) {
             console.log(`⚠️ Received message for unconnected page: ${fbPageId}`);
             return;
         }
-        if (!page.isActive) {
+        if (!page.is_active) {
             console.log(`⏸️ Auto-reply disabled for page: ${page.name}`);
             return;
         }
 
-        let conversation = await Conversation.findOne({
-            where: { senderId, pageId: page.id },
-        });
+        const senderProfile = await facebookService.getSenderProfile(senderId, page.access_token);
+        const conversation = await findOrCreateConversation(senderId, page.id, senderProfile.name);
 
-        if (!conversation) {
-            const senderProfile = await facebookService.getSenderProfile(senderId, page.accessToken);
-            conversation = await Conversation.create({
-                senderId,
-                senderName: senderProfile.name,
-                pageId: page.id,
-            });
-            console.log(`🆕 New conversation with ${senderProfile.name}`);
-        }
+        await createMessage(conversation.id, 'user', messageText);
 
-        await Message.create({
-            conversationId: conversation.id,
-            role: 'user',
-            content: messageText,
-        });
-
-        const history = await Message.findAll({
-            where: { conversationId: conversation.id },
-            order: [['createdAt', 'ASC']],
-            limit: 20,
-            attributes: ['role', 'content'],
-        });
-
+        const history = await getRecentMessages(conversation.id, 20);
         const conversationHistory = history
             .slice(0, -1)
             .map((m) => ({ role: m.role, content: m.content }));
 
-        console.log(`🤖 Calling Gemini AI for conversation with ${conversation.senderName}...`);
+        console.log(`🤖 Calling Gemini AI for conversation with ${conversation.sender_name}...`);
         const aiReply = await getReply(
-            page.systemPrompt,
+            page.system_prompt,
             page.context,
             conversationHistory,
             messageText
         );
 
-        await Message.create({
-            conversationId: conversation.id,
-            role: 'assistant',
-            content: aiReply,
-        });
+        await createMessage(conversation.id, 'assistant', aiReply);
+        await facebookService.sendMessage(page.access_token, senderId, aiReply);
+        console.log(`✅ Reply sent to ${conversation.sender_name}: "${aiReply.substring(0, 100)}..."`);
 
-        await facebookService.sendMessage(page.accessToken, senderId, aiReply);
-        console.log(`✅ Reply sent to ${conversation.senderName}: "${aiReply.substring(0, 100)}..."`);
-
-        conversation.changed('updatedAt', true);
-        await conversation.save();
+        await updateConversationTimestamp(conversation.id);
     } catch (error) {
         console.error('Handle message error:', error.message);
         try {
-            const page = await Page.findOne({ where: { pageId: fbPageId } });
+            const page = await getPageByPageId(fbPageId);
             if (page) {
                 await facebookService.sendMessage(
-                    page.accessToken,
+                    page.access_token,
                     senderId,
                     "I'm sorry, I'm having trouble right now. Please try again in a moment."
                 );
