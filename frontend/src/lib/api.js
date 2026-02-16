@@ -1,8 +1,7 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+// API client for TextReply
+// When deployed on Vercel, API routes are part of the same app (no separate backend)
 
-/**
- * API client for the TextReply backend
- */
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 function getToken() {
     if (typeof window !== 'undefined') {
@@ -61,12 +60,12 @@ export const getLoginUrl = () => `${API_URL}/api/auth/facebook`;
 export const getAvailablePages = () => apiFetch('/api/pages');
 export const getConnectedPages = () => apiFetch('/api/pages/connected');
 export const connectPage = (pageId) =>
-    apiFetch('/api/pages/connect', {
+    apiFetch('/api/pages', {
         method: 'POST',
         body: JSON.stringify({ pageId }),
     });
 export const updatePageContext = (id, systemPrompt, context) =>
-    apiFetch(`/api/pages/${id}/context`, {
+    apiFetch(`/api/pages/${id}`, {
         method: 'PUT',
         body: JSON.stringify({ systemPrompt, context }),
     });
