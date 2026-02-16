@@ -57,7 +57,7 @@ async function processEntries(entries) {
     }
 }
 
-async function handleIncomingMessage(fbPageId, senderId, messageText, models, facebookService, getReply) {
+async function handleIncomingMessage(fbPageId, senderId, messageText, models, facebookServiceModule, getReply) {
     const { getPageByPageId, findOrCreateConversation, createMessage, getRecentMessages, updateConversationTimestamp } = models;
 
     try {
@@ -66,12 +66,12 @@ async function handleIncomingMessage(fbPageId, senderId, messageText, models, fa
             console.log(`⚠️ Received message for unconnected page: ${fbPageId}`);
             return;
         }
-        if (!page.is_active) {
+        if (!page.isActive) {
             console.log(`⏸️ Auto-reply disabled for page: ${page.name}`);
             return;
         }
 
-        const senderProfile = await facebookService.getSenderProfile(senderId, page.access_token);
+        const senderProfile = await facebookServiceModule.getSenderProfile(senderId, page.accessToken);
         const conversation = await findOrCreateConversation(senderId, page.id, senderProfile.name);
 
         await createMessage(conversation.id, 'user', messageText);
@@ -81,26 +81,27 @@ async function handleIncomingMessage(fbPageId, senderId, messageText, models, fa
             .slice(0, -1)
             .map((m) => ({ role: m.role, content: m.content }));
 
-        console.log(`🤖 Calling Gemini AI for conversation with ${conversation.sender_name}...`);
+        console.log(`🤖 Calling Gemini AI for conversation with ${conversation.senderName}...`);
         const aiReply = await getReply(
-            page.system_prompt,
+            page.systemPrompt,
             page.context,
             conversationHistory,
             messageText
         );
 
         await createMessage(conversation.id, 'assistant', aiReply);
-        await facebookService.sendMessage(page.access_token, senderId, aiReply);
-        console.log(`✅ Reply sent to ${conversation.sender_name}: "${aiReply.substring(0, 100)}..."`);
+        await facebookServiceModule.sendMessage(page.accessToken, senderId, aiReply);
+        console.log(`✅ Reply sent to ${conversation.senderName}: "${aiReply.substring(0, 100)}..."`);
 
         await updateConversationTimestamp(conversation.id);
     } catch (error) {
         console.error('Handle message error:', error.message);
+        console.error('Error stack:', error.stack);
         try {
             const page = await getPageByPageId(fbPageId);
             if (page) {
-                await facebookService.sendMessage(
-                    page.access_token,
+                await facebookServiceModule.sendMessage(
+                    page.accessToken,
                     senderId,
                     "I'm sorry, I'm having trouble right now. Please try again in a moment."
                 );
