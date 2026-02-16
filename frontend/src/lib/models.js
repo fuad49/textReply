@@ -73,9 +73,22 @@ export async function getConnectedPages(userId) {
 }
 
 export async function getPageByPageId(pageId) {
-  const sql = getDb();
-  const [page] = await sql`SELECT * FROM pages WHERE "pageId" = ${pageId}`;
-  return page || null;
+  try {
+    console.log(`🔍 Querying for page with pageId: ${pageId}`);
+    console.log(`🔍 DATABASE_URL exists: ${!!process.env.DATABASE_URL}`);
+
+    const sql = getDb();
+    console.log('🔍 SQL client obtained');
+
+    const [page] = await sql`SELECT * FROM pages WHERE "pageId" = ${pageId}`;
+    console.log(`🔍 Query completed, found page: ${!!page}`);
+
+    return page || null;
+  } catch (error) {
+    console.error('❌ getPageByPageId error:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    throw error;
+  }
 }
 
 export async function getPageById(id, userId) {
