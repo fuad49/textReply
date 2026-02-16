@@ -28,12 +28,17 @@ export async function POST(request) {
         return NextResponse.json({ status: 'ignored' }, { status: 200 });
     }
 
-    // Process messages (don't await — respond to Facebook quickly)
-    processEntries(body.entry).catch((err) =>
-        console.error('Webhook processing error:', err)
-    );
+    try {
+        // CRITICAL FOR VERCEL: We MUST await processing here!
+        // In serverless, once the response is sent, the function freezes/terminates.
+        // Background promises (like processEntries without await) will be killed.
+        await processEntries(body.entry);
 
-    return NextResponse.json({ status: 'ok' }, { status: 200 });
+        return NextResponse.json({ status: 'ok' }, { status: 200 });
+    } catch (err) {
+        console.error('Webhook processing error:', err);
+        return NextResponse.json({ status: 'error', message: err.message }, { status: 500 });
+    }
 }
 
 async function processEntries(entries) {
