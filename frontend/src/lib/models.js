@@ -76,11 +76,19 @@ export async function getPageByPageId(pageId) {
   try {
     console.log(`🔍 Querying for page with pageId: ${pageId}`);
     console.log(`🔍 DATABASE_URL exists: ${!!process.env.DATABASE_URL}`);
+    console.log(`🔍 DATABASE_URL value (first 50 chars): ${process.env.DATABASE_URL?.substring(0, 50)}...`);
 
     const sql = getDb();
-    console.log('🔍 SQL client obtained');
+    console.log('🔍 SQL client obtained, executing query...');
 
-    const [page] = await sql`SELECT * FROM pages WHERE "pageId" = ${pageId}`;
+    // Add 5-second timeout to detect hanging queries
+    const queryPromise = sql`SELECT * FROM pages WHERE "pageId" = ${pageId}`;
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Query timeout after 5 seconds')), 5000)
+    );
+
+    const result = await Promise.race([queryPromise, timeoutPromise]);
+    const [page] = result;
     console.log(`🔍 Query completed, found page: ${!!page}`);
 
     return page || null;
