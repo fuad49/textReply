@@ -9,7 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^0.10.6",
+    "@neondatabase/serverless": "^0.10.5",
     "axios": "^1.13.5",
     "jsonwebtoken": "^9.0.3",
     "next": "16.1.6",
