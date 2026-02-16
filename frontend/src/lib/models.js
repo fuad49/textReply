@@ -19,9 +19,10 @@ export async function findOrCreateUser(facebookId, userData) {
 
   // Create new user - generate UUID since DB might not have DEFAULT set
   const userId = crypto.randomUUID();
+  const now = new Date();
   const [user] = await sql`
-    INSERT INTO users (id, "facebookId", name, email, "accessToken", "profilePicture")
-    VALUES (${userId}, ${facebookId}, ${userData.name}, ${userData.email}, ${userData.accessToken}, ${userData.profilePicture})
+    INSERT INTO users (id, "facebookId", name, email, "accessToken", "profilePicture", "createdAt", "updatedAt")
+    VALUES (${userId}, ${facebookId}, ${userData.name}, ${userData.email}, ${userData.accessToken}, ${userData.profilePicture}, ${now}, ${now})
     RETURNING *
   `;
 
@@ -88,9 +89,10 @@ export async function createPage(pageData) {
   await ensureTablesExist();
 
   const pageId = crypto.randomUUID();
+  const now = new Date();
   const [page] = await sql`
-    INSERT INTO pages (id, "pageId", name, "accessToken", "userId")
-    VALUES (${pageId}, ${pageData.pageId}, ${pageData.name}, ${pageData.accessToken}, ${pageData.userId})
+    INSERT INTO pages (id, "pageId", name, "accessToken", "userId", "createdAt", "updatedAt")
+    VALUES (${pageId}, ${pageData.pageId}, ${pageData.name}, ${pageData.accessToken}, ${pageData.userId}, ${now}, ${now})
     RETURNING *
   `;
 
@@ -144,9 +146,10 @@ export async function findOrCreateConversation(senderId, pageId, senderName = 'U
   }
 
   const conversationId = crypto.randomUUID();
+  const now = new Date();
   const [conversation] = await sql`
-    INSERT INTO conversations (id, "senderId", "senderName", "pageId")
-    VALUES (${conversationId}, ${senderId}, ${senderName}, ${pageId})
+    INSERT INTO conversations (id, "senderId", "senderName", "pageId", "createdAt", "updatedAt")
+    VALUES (${conversationId}, ${senderId}, ${senderName}, ${pageId}, ${now}, ${now})
     RETURNING *
   `;
 
@@ -190,9 +193,10 @@ export async function createMessage(conversationId, role, content) {
   await ensureTablesExist();
 
   const messageId = crypto.randomUUID();
+  const now = new Date();
   const [message] = await sql`
-    INSERT INTO messages (id, "conversationId", role, content)
-    VALUES (${messageId}, ${conversationId}, ${role}, ${content})
+    INSERT INTO messages (id, "conversationId", role, content, "createdAt")
+    VALUES (${messageId}, ${conversationId}, ${role}, ${content}, ${now})
     RETURNING *
   `;
 

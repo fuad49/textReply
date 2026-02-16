@@ -61,42 +61,63 @@ async function handleIncomingMessage(fbPageId, senderId, messageText, models, fa
     const { getPageByPageId, findOrCreateConversation, createMessage, getRecentMessages, updateConversationTimestamp } = models;
 
     try {
+        console.log('🔍 Step 1: Looking up page in database...');
         const page = await getPageByPageId(fbPageId);
+
         if (!page) {
             console.log(`⚠️ Received message for unconnected page: ${fbPageId}`);
             return;
         }
+        console.log(`✅ Found page: ${page.name}, isActive: ${page.isActive}`);
+
         if (!page.isActive) {
             console.log(`⏸️ Auto-reply disabled for page: ${page.name}`);
             return;
         }
 
+        console.log('🔍 Step 2: Getting sender profile from Facebook...');
         const senderProfile = await facebookServiceModule.getSenderProfile(senderId, page.accessToken);
+        console.log(`✅ Sender profile: ${senderProfile.name}`);
+
+        console.log('🔍 Step 3: Finding or creating conversation...');
         const conversation = await findOrCreateConversation(senderId, page.id, senderProfile.name);
+        console.log(`✅ Conversation ID: ${conversation.id}`);
 
+        console.log('🔍 Step 4: Saving user message to database...');
         await createMessage(conversation.id, 'user', messageText);
+        console.log('✅ User message saved');
 
+        console.log('🔍 Step 5: Loading conversation history...');
         const history = await getRecentMessages(conversation.id, 20);
         const conversationHistory = history
             .slice(0, -1)
             .map((m) => ({ role: m.role, content: m.content }));
+        console.log(`✅ Loaded ${conversationHistory.length} previous messages`);
 
-        console.log(`🤖 Calling Gemini AI for conversation with ${conversation.senderName}...`);
+        console.log(`🔍 Step 6: Calling Gemini AI for conversation with ${conversation.senderName}...`);
         const aiReply = await getReply(
             page.systemPrompt,
             page.context,
             conversationHistory,
             messageText
         );
+        console.log(`✅ AI reply received: "${aiReply.substring(0, 50)}..."`);
 
+        console.log('🔍 Step 7: Saving AI reply to database...');
         await createMessage(conversation.id, 'assistant', aiReply);
+        console.log('✅ AI reply saved');
+
+        console.log('🔍 Step 8: Sending reply to Facebook...');
         await facebookServiceModule.sendMessage(page.accessToken, senderId, aiReply);
         console.log(`✅ Reply sent to ${conversation.senderName}: "${aiReply.substring(0, 100)}..."`);
 
+        console.log('🔍 Step 9: Updating conversation timestamp...');
         await updateConversationTimestamp(conversation.id);
+        console.log('✅ All steps completed successfully!');
     } catch (error) {
-        console.error('Handle message error:', error.message);
-        console.error('Error stack:', error.stack);
+        console.error('❌ Handle message error:', error.message);
+        console.error('❌ Error stack:', error.stack);
+        console.error('❌ Error details:', JSON.stringify(error, null, 2));
         try {
             const page = await getPageByPageId(fbPageId);
             if (page) {
