@@ -17,10 +17,11 @@ export async function findOrCreateUser(facebookId, userData) {
     return existing[0];
   }
 
-  // Create new user
+  // Create new user - generate UUID since DB might not have DEFAULT set
+  const userId = crypto.randomUUID();
   const [user] = await sql`
-    INSERT INTO users ("facebookId", name, email, "accessToken", "profilePicture")
-    VALUES (${facebookId}, ${userData.name}, ${userData.email}, ${userData.accessToken}, ${userData.profilePicture})
+    INSERT INTO users (id, "facebookId", name, email, "accessToken", "profilePicture")
+    VALUES (${userId}, ${facebookId}, ${userData.name}, ${userData.email}, ${userData.accessToken}, ${userData.profilePicture})
     RETURNING *
   `;
 
@@ -86,9 +87,10 @@ export async function createPage(pageData) {
   const sql = getDb();
   await ensureTablesExist();
 
+  const pageId = crypto.randomUUID();
   const [page] = await sql`
-    INSERT INTO pages ("pageId", name, "accessToken", "userId")
-    VALUES (${pageData.pageId}, ${pageData.name}, ${pageData.accessToken}, ${pageData.userId})
+    INSERT INTO pages (id, "pageId", name, "accessToken", "userId")
+    VALUES (${pageId}, ${pageData.pageId}, ${pageData.name}, ${pageData.accessToken}, ${pageData.userId})
     RETURNING *
   `;
 
@@ -141,9 +143,10 @@ export async function findOrCreateConversation(senderId, pageId, senderName = 'U
     return existing[0];
   }
 
+  const conversationId = crypto.randomUUID();
   const [conversation] = await sql`
-    INSERT INTO conversations ("senderId", "senderName", "pageId")
-    VALUES (${senderId}, ${senderName}, ${pageId})
+    INSERT INTO conversations (id, "senderId", "senderName", "pageId")
+    VALUES (${conversationId}, ${senderId}, ${senderName}, ${pageId})
     RETURNING *
   `;
 
@@ -186,9 +189,10 @@ export async function createMessage(conversationId, role, content) {
   const sql = getDb();
   await ensureTablesExist();
 
+  const messageId = crypto.randomUUID();
   const [message] = await sql`
-    INSERT INTO messages ("conversationId", role, content)
-    VALUES (${conversationId}, ${role}, ${content})
+    INSERT INTO messages (id, "conversationId", role, content)
+    VALUES (${messageId}, ${conversationId}, ${role}, ${content})
     RETURNING *
   `;
 
