@@ -1,0 +1,49 @@
+# Render.com Blueprint — Auto-configures both services
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  # Backend API
+  - type: web
+    name: textreply-backend
+    runtime: node
+    region: singapore  # Change to your preferred region
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node src/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: DATABASE_URL
+        sync: false  # You'll set this manually
+      - key: FB_APP_ID
+        sync: false
+      - key: FB_APP_SECRET
+        sync: false
+      - key: FB_VERIFY_TOKEN
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        sync: false  # Set to your frontend Render URL
+
+  # Frontend Dashboard
+  - type: web
+    name: textreply-frontend
+    runtime: node
+    region: singapore
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npx next build
+    startCommand: npx next start -p $PORT
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        sync: false  # Set to your backend Render URL
+      - key: NEXT_PUBLIC_FB_APP_ID
+        sync: false
