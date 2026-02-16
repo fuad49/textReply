@@ -10,9 +10,9 @@ export async function GET(request) {
 
     try {
         const sql = getDb();
-        const fbPages = await facebookService.getUserPages(user.access_token);
-        const connectedPages = await sql`SELECT page_id FROM pages WHERE user_id = ${user.id}`;
-        const connectedPageIds = new Set(connectedPages.map((p) => p.page_id));
+        const fbPages = await facebookService.getUserPages(user.accessToken);
+        const connectedPages = await sql`SELECT "pageId" FROM pages WHERE "userId" = ${user.id}`;
+        const connectedPageIds = new Set(connectedPages.map((p) => p.pageId));
 
         const pages = fbPages.map((p) => ({
             pageId: p.id,
@@ -26,6 +26,7 @@ export async function GET(request) {
         return NextResponse.json({ pages });
     } catch (error) {
         console.error('List pages error:', error.message);
+        console.error('Error stack:', error.stack);
         return NextResponse.json({ error: 'Failed to fetch pages' }, { status: 500 });
     }
 }
@@ -40,7 +41,7 @@ export async function POST(request) {
         const { pageId } = await request.json();
         if (!pageId) return NextResponse.json({ error: 'pageId is required' }, { status: 400 });
 
-        const fbPages = await facebookService.getUserPages(user.access_token);
+        const fbPages = await facebookService.getUserPages(user.accessToken);
         const fbPage = fbPages.find((p) => p.id === pageId);
         if (!fbPage) return NextResponse.json({ error: 'Page not found' }, { status: 404 });
 
@@ -58,10 +59,11 @@ export async function POST(request) {
 
         return NextResponse.json({
             message: 'Page connected successfully!',
-            page: { id: page.id, pageId: page.page_id, name: page.name, isActive: page.is_active },
+            page: { id: page.id, pageId: page.pageId, name: page.name, isActive: page.isActive },
         });
     } catch (error) {
         console.error('Connect page error:', error.message);
+        console.error('Error stack:', error.stack);
         return NextResponse.json({ error: 'Failed to connect page' }, { status: 500 });
     }
 }
