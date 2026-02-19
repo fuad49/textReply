@@ -209,6 +209,10 @@ export async function updateConversationTimestamp(conversationId) {
 // MESSAGE OPERATIONS
 // ────────────────────────────────────────────────────────
 
+// ────────────────────────────────────────────────────────
+// MESSAGE OPERATIONS
+// ────────────────────────────────────────────────────────
+
 export async function createMessage(conversationId, role, content) {
   const sql = getDb();
   await ensureTablesExist();
@@ -227,25 +231,27 @@ export async function createMessage(conversationId, role, content) {
 export async function getMessages(conversationId, limit = 20) {
   const sql = getDb();
 
+  // Fetch the LATEST messages, then reverse order for display
   const messages = await sql`
     SELECT * FROM messages
     WHERE "conversationId" = ${conversationId}
-    ORDER BY "createdAt" ASC
+    ORDER BY "createdAt" DESC
     LIMIT ${limit}
   `;
 
-  return messages;
+  return messages.reverse();
 }
 
 export async function getRecentMessages(conversationId, limit = 20) {
   const sql = getDb();
 
+  // Fetch the LATEST messages for AI context, then reverse order
   const messages = await sql`
     SELECT role, content FROM messages
     WHERE "conversationId" = ${conversationId}
-    ORDER BY "createdAt" ASC
+    ORDER BY "createdAt" DESC
     LIMIT ${limit}
   `;
 
-  return messages;
+  return messages.reverse();
 }
